@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONStock | Expert Trader Final</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* --- Color Palette --- */
+            --bg-app: #0f1218;
+            --bg-panel: #161b24;
+            --bg-panel-header: #1c222e;
+            --bg-status: #13171f;
+
+            --text-main: #edf2f7;
+            --text-muted: #8b9bb4;
+            --text-accent: #38bdf8;
+
+            --border-color: #2d3748;
+
+            /* Signal Colors */
+            --color-up: #34d399;
+            --color-down: #fb7185;
+
+            /* Gradients */
+            --btn-grad-buy: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            --btn-grad-sell: linear-gradient(135deg, #e11d48 0%, #f43f5e 100%);
+            --btn-grad-blue: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+
+            --font-ui: 'Manrope', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        body.light-mode {
+            --bg-app: #f1f5f9;
+            --bg-panel: #ffffff;
+            --bg-panel-header: #f8fafc;
+            --bg-status: #e2e8f0;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #cbd5e1;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; transition: background 0.3s, color 0.3s, border-color 0.3s; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-panel); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+
+        body {
+            background-color: var(--bg-app); color: var(--text-main);
+            font-family: var(--font-ui); font-size: 15px; font-weight: 500;
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        /* Header */
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 24px; height: 60px;
+            border-bottom: 1px solid var(--border-color); background: var(--bg-panel);
+            flex-shrink: 0; z-index: 10;
+        }
+        .logo {
+            font-family: var(--font-ui); font-weight: 800; font-size: 1.6rem;
+            letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px;
+        }
+        .logo-icon {
+            width: 28px; height: 28px; background: var(--btn-grad-blue);
+            border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 1.2rem;
+        }
+        .logo-text { color: var(--text-main); }
+        .logo-text span { color: var(--text-accent); }
+
+        .header-controls { display: flex; gap: 24px; align-items: center; }
+        .balance-wrapper { text-align: right; }
+        .balance-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;}
+        .balance-display { font-family: var(--font-mono); font-weight: 700; font-size: 1.2rem; color: var(--text-accent); }
+
+        .theme-btn {
+            background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);
+            padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; font-weight: 600;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            height: 50px; background: var(--bg-status); border-bottom: 1px solid var(--border-color);
+            display: flex; align-items: center; padding: 0 24px;
+            font-family: var(--font-mono); font-size: 0.9rem; flex-shrink: 0;
+            overflow-x: auto; white-space: nowrap; gap: 30px;
+        }
+        .status-item { display: flex; align-items: center; gap: 10px; }
+        .status-label { color: var(--text-muted); font-size: 0.75rem; font-weight: 700; }
+        .status-value { font-weight: 700; color: var(--text-main); min-width: 70px; text-align: right;}
+        .spark-canvas { width: 50px; height: 25px; display: block; }
+        .divider { width: 1px; height: 20px; background: var(--border-color); }
+
+        .detail-item { display: flex; gap: 8px; align-items: center; font-size: 0.85rem;}
+        .detail-label { color: var(--text-muted); font-size: 0.75rem;}
+
+        /* Main Grid */
+        main {
+            display: grid;
+            grid-template-columns: 280px 1fr 340px;
+            height: calc(100vh - 140px);
+            gap: 1px; background-color: var(--border-color);
+        }
+
+        .panel { background: var(--bg-panel); display: flex; flex-direction: column; overflow: hidden; }
+        .panel-header {
+            padding: 10px 16px; background: var(--bg-panel-header);
+            border-bottom: 1px solid var(--border-color); font-size: 0.8rem; font-weight: 700;
+            color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
+            flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .up { color: var(--color-up) !important; }
+        .down { color: var(--color-down) !important; }
+        .mono-font { font-family: var(--font-mono); }
+
+        /* Left Panel */
+        .order-controls { padding: 16px; border-bottom: 1px solid var(--border-color); margin-bottom: 0; }
+        .trade-input-box {
+            background: rgba(0,0,0,0.2); border: 1px solid var(--border-color);
+            border-radius: 8px; padding: 12px; margin-bottom: 12px;
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .trade-input-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
+        .trade-input {
+            background: transparent; border: none; color: var(--text-main);
+            font-family: var(--font-mono); font-size: 1.2rem; font-weight: 700; width: 100%; outline: none;
+        }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .btn {
+            padding: 14px; border: none; border-radius: 8px; font-weight: 700;
+            cursor: pointer; color: white; font-size: 0.95rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.1s;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-buy { background: var(--btn-grad-buy); }
+        .btn-sell { background: var(--btn-grad-sell); }
+
+        .holding-info {
+            font-size: 0.85rem; background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 6px;
+            padding: 10px; display: flex; justify-content: space-between; color: var(--text-accent);
+        }
+
+        .stock-list-container { flex-grow: 1; overflow-y: auto; padding: 0 16px 16px 16px; }
+        .stock-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 10px; cursor: pointer; border-radius: 6px; margin-bottom: 4px;
+            border-left: 3px solid transparent; transition: background 0.2s;
+        }
+        .stock-item:hover { background: var(--bg-panel-header); }
+        .stock-item.active { background: rgba(56, 189, 248, 0.1); border-left-color: var(--text-accent); }
+        .list-price { font-weight: 700; font-size: 0.95rem; }
+        .list-pct { font-size: 0.75rem; margin-top: 2px; }
+
+        /* Center Panel (Chart) */
+        .chart-panel { position: relative; }
+        .chart-top-bar {
+            padding: 20px 24px 10px 24px;
+            display: flex; justify-content: space-between; align-items: flex-start;
+            background: var(--bg-panel); flex-shrink: 0;
+        }
+        #current-name { font-size: 2.5rem; font-weight: 800; line-height: 1.1; margin: 0; letter-spacing: -1px;}
+        .price-big { font-size: 2.2rem; font-weight: 700; margin: 0; letter-spacing: -1px; }
+        .change-big { font-size: 1.2rem; font-weight: 600; margin-left: 10px; }
+
+        .chart-controls { display: flex; gap: 6px; margin-top: 10px; }
+        .tf-btn {
+            background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);
+            padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; cursor: default;
+        }
+        .tf-btn.active { background: var(--text-accent); color: #0f1218; border-color: var(--text-accent); }
+
+        .chart-container { flex-grow: 1; position: relative; width: 100%; padding: 0 10px 10px 10px; }
+
+        /* Right Panel */
+        .right-split-top { flex: 2; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 0; }
+        .right-split-bottom { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+        .event-container-scroll { flex-grow: 1; overflow-y: auto; padding: 16px; }
+        .event-log li {
+            margin-bottom: 8px; padding: 12px; border-radius: 8px;
+            background: rgba(255,255,255,0.03); border: 1px solid transparent;
+            opacity: 0; animation: fadeIn 0.4s forwards;
+        }
+        @keyframes fadeIn { to { opacity: 1; } }
+        .news-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; display: block; line-height: 1.4; }
+        .news-meta { font-size: 0.7rem; color: var(--text-muted); display: flex; gap: 8px; align-items: center;}
+        .news-dot { width: 4px; height: 4px; background: var(--text-accent); border-radius: 50%; }
+
+        .log-container-scroll { flex-grow: 1; overflow-y: auto; padding: 0; }
+        .trade-table th { position: sticky; top: 0; background: var(--bg-panel-header); z-index: 2; padding: 8px 12px; text-align: left; font-size: 0.75rem; color: var(--text-muted);}
+        .trade-table td { padding: 8px 12px; border-bottom: 1px solid var(--border-color); font-family: var(--font-mono); font-size: 0.8rem;}
+
+        /* Footer */
+        .footer-bar {
+            height: 30px; background: var(--bg-status); border-top: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center; padding: 0 15px;
+            font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); flex-shrink: 0;
+        }
+        .footer-group { display: flex; gap: 20px; align-items: center; }
+        .status-led { width: 8px; height: 8px; background: var(--color-up); border-radius: 50%; box-shadow: 0 0 5px var(--color-up); margin-right: 6px; }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <div class="logo-icon">N</div>
+            <div class="logo-text">ON<span>Stock</span></div>
+        </div>
+        <div class="header-controls">
+            <div class="balance-wrapper">
+                <div class="balance-label">Total Equity</div>
+                <div class="balance-display">₩ <span id="balance">100,000,000</span></div>
+            </div>
+            <button class="theme-btn" onclick="toggleTheme()">Theme</button>
+            <button class="theme-btn" style="color:var(--color-down); border-color:var(--color-down);" onclick="resetGame()">Reset</button>
+        </div>
+    </header>
+
+    <div class="status-bar">
+        <div class="status-item">
+            <span class="status-label">USD/KRW</span>
+            <span class="status-value mono-font" id="idx-usd">1,350.50</span>
+            <canvas id="spark-usd" class="spark-canvas"></canvas>
+        </div>
+        <div class="status-item">
+            <span class="status-label">KOSPI</span>
+            <span class="status-value mono-font" id="idx-kospi">2,650.00</span>
+            <canvas id="spark-kospi" class="spark-canvas"></canvas>
+        </div>
+        <div class="status-item">
+            <span class="status-label">KOSDAQ</span>
+            <span class="status-value mono-font" id="idx-kosdaq">870.50</span>
+            <canvas id="spark-kosdaq" class="spark-canvas"></canvas>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="detail-item">
+            <span class="detail-label">OPEN</span>
+            <span class="mono-font" id="detail-open">-</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">HIGH</span>
+            <span class="mono-font up" id="detail-high">-</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">LOW</span>
+            <span class="mono-font down" id="detail-low">-</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">VOL</span>
+            <span class="mono-font" id="detail-volume">-</span>
+        </div>
+    </div>
+
+    <main>
+        <aside class="panel">
+            <div class="panel-header">Trading Desk</div>
+            <div class="order-controls">
+                <div class="trade-input-box">
+                    <label class="trade-input-label">QUANTITY</label>
+                    <input type="number" id="trade-amount" class="trade-input" min="1" value="10">
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-buy" onclick="trade('buy')">BUY</button>
+                    <button class="btn btn-sell" onclick="trade('sell')">SELL</button>
+                </div>
+
+                <div class="holding-info mono-font">
+                    <span>POS: <b id="holding-qty">0</b></span>
+                    <span>P/L: <b id="holding-pl">0</b></span>
+                </div>
+            </div>
+
+            <div class="panel-header" style="background:none; border:none; padding-left:16px; margin-top:0;">
+                Watchlist (Real-time)
+            </div>
+            <div class="stock-list-container">
+                <ul id="stock-list" style="list-style:none; padding:0;"></ul>
+            </div>
+        </aside>
+
+        <section class="panel chart-panel">
+            <div class="chart-top-bar">
+                <div>
+                    <h1 id="current-name">Samsung Elec</h1>
+                    <div class="chart-controls">
+                        <button class="tf-btn active">1H</button>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div id="current-price" class="price-big mono-font">72,000</div>
+                    <div id="current-change" class="change-big mono-font">0.00%</div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="mainChart"></canvas>
+            </div>
+        </section>
+
+        <aside class="panel">
+            <div class="right-split-top">
+                <div class="panel-header">Market News (Live)</div>
+                <div class="event-container-scroll" id="events-container">
+                    <ul class="event-log" id="event-log-list" style="list-style:none; padding:0;"></ul>
+                </div>
+            </div>
+            <div class="right-split-bottom">
+                <div class="panel-header">Execution Log</div>
+                <div class="log-container-scroll">
+                    <table class="trade-table" style="width:100%; border-collapse:collapse;">
+                        <thead>
+                            <tr><th>Time</th><th>Side</th><th>Price</th><th>Qty</th></tr>
+                        </thead>
+                        <tbody id="trade-history-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <div class="footer-bar">
+        <div class="footer-group">
+            <div style="display:flex; align-items:center;">
+                <div class="status-led"></div> Connected: SEOUL-IDC-04
+            </div>
+            <div>Latency: <span id="latency-val">3ms</span></div>
+        </div>
+        <div class="footer-group">
+            <div id="sys-time">00:00:00</div>
+            <div>System: Normal</div>
+        </div>
+    </div>
+
+    <script>
+        const INITIAL_MONEY = 100000000;
+        const INITIAL_STOCKS = [
+            { id: 'sec', name: '삼성전자', symbol: 'SEC', price: 74200, volatility: 0.005 },
+            { id: 'skh', name: 'SK하이닉스', symbol: 'SKH', price: 138500, volatility: 0.006 },
+            { id: 'nvr', name: 'NAVER', symbol: 'NVR', price: 205000, volatility: 0.007 },
+            { id: 'kak', name: '카카오', symbol: 'KAK', price: 54300, volatility: 0.008 },
+            { id: 'lgensol', name: 'LG에너지솔루션', symbol: 'LGE', price: 412000, volatility: 0.005 },
+            { id: 'posco', name: 'POSCO홀딩스', symbol: 'POS', price: 450000, volatility: 0.006 },
+            { id: 'gla', name: '기아', symbol: 'KIA', price: 115000, volatility: 0.005 },
+            { id: 'hdm', name: '현대차', symbol: 'HYU', price: 245000, volatility: 0.005 },
+            { id: 'cell', name: '셀트리온', symbol: 'CEL', price: 180000, volatility: 0.007 }
+        ];
+
+        let state = {
+            balance: INITIAL_MONEY, portfolio: {}, stocks: [], selectedStockId: 'sec',
+            history: {}, tradeHistory: [], details: {},
+            indices: { usd: [], kospi: [], kosdaq: [] },
+            theme: 'dark'
+        };
+
+        let chartInstance = null;
+        let sparkCharts = {};
+        let realNewsFeed = [];
+        let newsIndex = 0;
+
+        function init() {
+            const savedData = localStorage.getItem('onStockV6Data');
+            if (savedData) {
+                const parsed = JSON.parse(savedData);
+                state = { ...state, ...parsed };
+                if (!parsed.stocks || parsed.stocks.length === 0) resetData();
+            } else {
+                resetData();
+            }
+
+            initSparklines();
+            initChart();
+            renderStockList();
+            renderTradeHistory();
+            updateUI();
+
+            fetchRealIndices(); fetchRealNews();
+            setInterval(tick, 1000);
+            setInterval(updateSparklines, 2000);
+            setInterval(displayNextNews, 4000);
+            setInterval(updateSystemTime, 1000);
+            setInterval(fetchRealIndices, 60000);
+            setInterval(() => {
+                document.getElementById('latency-val').innerText = Math.floor(Math.random() * 20 + 2) + 'ms';
+            }, 3000);
+        }
+
+        function resetData() {
+            state.stocks = JSON.parse(JSON.stringify(INITIAL_STOCKS));
+            state.stocks.forEach(stock => {
+                state.history[stock.id] = generateHistory(stock.price, 0.005);
+                state.details[stock.id] = { open: stock.price, high: stock.price, low: stock.price, volume: 0 };
+            });
+            state.indices = { usd: Array(20).fill(1350), kospi: Array(20).fill(2650), kosdaq: Array(20).fill(870) };
+        }
+
+        function generateHistory(startPrice, vol) {
+            let data = [startPrice];
+            for(let i=1; i<60; i++) {
+                data.push(data[i-1] * (1 + (Math.random()-0.5)*vol*5));
+            }
+            return data;
+        }
+
+        function initSparklines() {
+            createSparkline('spark-usd', state.indices.usd, '#38bdf8');
+            createSparkline('spark-kospi', state.indices.kospi, '#34d399');
+            createSparkline('spark-kosdaq', state.indices.kosdaq, '#fb7185');
+        }
+
+        function createSparkline(id, data, color) {
+            const ctx = document.getElementById(id).getContext('2d');
+            sparkCharts[id] = new Chart(ctx, {
+                type: 'line',
+                data: { labels: Array(20).fill(''), datasets: [{ data: data, borderColor: color, borderWidth: 2, pointRadius: 0, fill: false, tension: 0.3 }] },
+                options: { responsive: false, maintainAspectRatio: false, animation: false, plugins: { legend: false, tooltip: false }, scales: { x: {display: false}, y: {display: false} } }
+            });
+        }
+
+        function updateSparklines() {
+            updateSingleSpark('spark-usd', 'idx-usd', state.indices.usd);
+            updateSingleSpark('spark-kospi', 'idx-kospi', state.indices.kospi);
+            updateSingleSpark('spark-kosdaq', 'idx-kosdaq', state.indices.kosdaq);
+        }
+
+        function updateSingleSpark(chartId, textId, dataArr) {
+            const el = document.getElementById(textId);
+            let current = parseFloat(el.innerText.replace(/[^0-9.]/g, ''));
+            const change = (Math.random() - 0.5) * (current * 0.001);
+            const newVal = current + change;
+            el.innerText = newVal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            el.className = `status-value mono-font ${change >= 0 ? 'up' : 'down'}`;
+            dataArr.push(newVal); dataArr.shift();
+            sparkCharts[chartId].update();
+        }
+
+        async function fetchRealIndices() {
+            try {
+                const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+                const data = await res.json();
+                document.getElementById('idx-usd').innerText = data.rates.KRW.toLocaleString();
+            } catch(e) {}
+        }
+
+        function tick() {
+            state.stocks.forEach(stock => {
+                const change = (Math.random() - 0.5) * 2 * stock.volatility;
+                stock.price = stock.price * (1 + change);
+
+                state.history[stock.id].push(stock.price);
+                if(state.history[stock.id].length > 60) state.history[stock.id].shift();
+
+                const d = state.details[stock.id];
+                if (stock.price > d.high) d.high = stock.price;
+                if (stock.price < d.low) d.low = stock.price;
+                d.volume += Math.floor(Math.random() * 500);
+            });
+
+            updateChart();
+            updateUI();
+            saveData();
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(60).fill(''),
+                    datasets: [{
+                        data: [], borderColor: '#38bdf8', borderWidth: 2,
+                        backgroundColor: (ctx) => {
+                            const grad = ctx.chart.ctx.createLinearGradient(0,0,0,400);
+                            grad.addColorStop(0, 'rgba(56, 189, 248, 0.2)');
+                            grad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+                            return grad;
+                        },
+                        fill: true, pointRadius: 0, pointHoverRadius: 6,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    // 애니메이션 활성화 (부드러운 전환)
+                    animation: {
+                        duration: 800,
+                        easing: 'easeOutQuart'
+                    },
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: false, tooltip: { enabled: true, backgroundColor: '#1c222e', titleColor: '#8b9bb4', bodyFont:{family:'JetBrains Mono'}, displayColors:false } },
+                    scales: { x: { display: false }, y: { position: 'right', grid: { color: '#2d3748' }, ticks: { color: '#8b9bb4', callback: v=>v.toLocaleString() } } }
+                }
+            });
+        }
+
+        function updateChart() {
+            const stock = state.stocks.find(s => s.id === state.selectedStockId);
+            const data = state.history[stock.id];
+            const start = data[0];
+            const isUp = stock.price >= start;
+
+            chartInstance.data.datasets[0].data = data;
+            chartInstance.data.datasets[0].borderColor = isUp ? '#34d399' : '#fb7185';
+            chartInstance.update();
+
+            document.getElementById('current-name').innerText = stock.name;
+            const priceEl = document.getElementById('current-price');
+            priceEl.innerText = Math.floor(stock.price).toLocaleString();
+            priceEl.className = `price-big mono-font ${isUp ? 'up' : 'down'}`;
+
+            const change = ((stock.price - start) / start) * 100;
+            const changeEl = document.getElementById('current-change');
+            changeEl.innerText = (change > 0 ? '+' : '') + change.toFixed(2) + '%';
+            changeEl.className = `change-big mono-font ${change >= 0 ? 'up' : 'down'}`;
+
+            const d = state.details[stock.id];
+            document.getElementById('detail-open').innerText = Math.floor(d.open).toLocaleString();
+            document.getElementById('detail-high').innerText = Math.floor(d.high).toLocaleString();
+            document.getElementById('detail-low').innerText = Math.floor(d.low).toLocaleString();
+            document.getElementById('detail-volume').innerText = d.volume.toLocaleString();
+        }
+
+        function renderStockList() {
+            const list = document.getElementById('stock-list');
+            list.innerHTML = '';
+            state.stocks.forEach(s => {
+                const li = document.createElement('li');
+                li.className = `stock-item ${s.id === state.selectedStockId ? 'active' : ''}`;
+                li.onclick = () => { state.selectedStockId = s.id; updateChart(); renderStockList(); };
+                li.innerHTML = `
+                    <div style="font-weight:700">${s.name}</div>
+                    <div class="stock-price-group mono-font">
+                        <div id="price-${s.id}" class="list-price">${Math.floor(s.price).toLocaleString()}</div>
+                        <div id="pct-${s.id}" class="list-pct">0.00%</div>
+                    </div>`;
+                list.appendChild(li);
+            });
+        }
+
+        function updateUI() {
+            state.stocks.forEach(s => {
+                const elP = document.getElementById(`price-${s.id}`);
+                const elC = document.getElementById(`pct-${s.id}`);
+                if(elP && elC) {
+                    const start = state.history[s.id][0];
+                    const chg = ((s.price - start)/start)*100;
+                    elP.innerText = Math.floor(s.price).toLocaleString();
+                    elP.className = `list-price ${chg>=0?'up':'down'}`;
+                    elC.innerText = (chg>0?'+':'') + chg.toFixed(2) + '%';
+                    elC.className = `list-pct ${chg>=0?'up':'down'}`;
+                }
+            });
+            const stock = state.stocks.find(s => s.id === state.selectedStockId);
+            const holding = state.portfolio[stock.id] || { qty: 0, avgPrice: 0 };
+            document.getElementById('holding-qty').innerText = holding.qty.toLocaleString();
+            const pl = holding.qty > 0 ? (stock.price - holding.avgPrice) * holding.qty : 0;
+            const plEl = document.getElementById('holding-pl');
+            plEl.innerText = Math.floor(pl).toLocaleString();
+            plEl.className = pl >= 0 ? 'up' : 'down';
+            document.getElementById('balance').innerText = Math.floor(state.balance).toLocaleString();
+        }
+
+        function trade(type) {
+            const qty = parseInt(document.getElementById('trade-amount').value);
+            const stock = state.stocks.find(s => s.id === state.selectedStockId);
+            if(isNaN(qty) || qty<=0) return alert("Invalid Quantity");
+
+            const amt = Math.floor(stock.price * qty);
+            if(type === 'buy') {
+                if(state.balance < amt) return alert("Insufficient Funds");
+                state.balance -= amt;
+                if(!state.portfolio[stock.id]) state.portfolio[stock.id] = { qty: 0, avgPrice: 0 };
+                const p = state.portfolio[stock.id];
+                p.avgPrice = ((p.qty * p.avgPrice) + amt) / (p.qty + qty);
+                p.qty += qty;
+            } else {
+                if(!state.portfolio[stock.id] || state.portfolio[stock.id].qty < qty) return alert("Insufficient Shares");
+                state.balance += amt;
+                state.portfolio[stock.id].qty -= qty;
+            }
+            const now = new Date().toLocaleTimeString('ko-KR');
+            state.tradeHistory.unshift({ time: now, side: type.toUpperCase(), price: stock.price, qty: qty });
+            renderTradeHistory(); saveData();
+        }
+
+        function renderTradeHistory() {
+            const tbody = document.getElementById('trade-history-body');
+            tbody.innerHTML = '';
+            state.tradeHistory.forEach(t => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${t.time}</td><td class="${t.side==='BUY'?'up':'down'}" style="font-weight:700">${t.side}</td><td>${Math.floor(t.price).toLocaleString()}</td><td>${t.qty}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function fetchRealNews() {
+            try {
+                const res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=https://news.google.com/rss/topics/CAAqIggKIhxDQkFTRHdvSkwyMHZNR2RtY0hNekVnSnJieWdBUAE?hl=ko&gl=KR&ceid=KR%3Ako');
+                const data = await res.json();
+                if(data.items) realNewsFeed = data.items;
+            } catch(e){}
+        }
+
+        function displayNextNews() {
+            if(realNewsFeed.length === 0) return;
+            const item = realNewsFeed[newsIndex % realNewsFeed.length];
+            newsIndex++;
+            const ul = document.getElementById('event-log-list');
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="news-title">${item.title}</span><div class="news-meta"><div class="news-dot"></div>${new Date().toLocaleTimeString('ko-KR')}</div>`;
+            ul.insertBefore(li, ul.firstChild);
+            if(ul.children.length > 50) ul.removeChild(ul.lastChild);
+        }
+
+        function updateSystemTime() {
+            document.getElementById('sys-time').innerText = new Date().toLocaleString('ko-KR');
+        }
+
+        function saveData() { localStorage.setItem('onStockV6Data', JSON.stringify(state)); }
+        function resetGame() { if(confirm("Reset All?")) { localStorage.removeItem('onStockV6Data'); location.reload(); } }
+        function toggleTheme() { document.body.classList.toggle('light-mode'); }
+
+        init();
+    </script>
+</body>
+</html>
